@@ -1,0 +1,10 @@
+{%- for interface in data.interfaces -%}
+interface {{ interface.name }}
+ip address {{ interface.ip.ip }} {{ interface.ip.netmask }}
+description {{ interface.description }}
+{%- if interface.status=='up' %}
+no shutdown
+{% else %}
+shutdown
+{% endif %}
+{%- endfor %}
