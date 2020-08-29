@@ -5,6 +5,10 @@ import ipaddress
 import napalm
 import logging
 import sys
+import threading
+import queue
+from concurrent.futures import ThreadPoolExecutor
+import time
 from io import StringIO
 from configparser import ConfigParser
 from napalm.base.exceptions import ConnectionException
@@ -39,6 +43,37 @@ def __get_args():
         help='Environment variables.',
     )
     return parser.parse_args()
+
+
+def device_setup(hostname, data, env_vars, que):
+    device = Router(
+        hostname=hostname,
+        mgmt_ip=data['mgmt'],
+        vendor=data['vendor'],
+        os=data['os']
+    )
+
+    for name, interface in data['interfaces'].items():
+        device.add_interface(
+            name=name,
+            ip=ipaddress.IPv4Interface(interface['ipaddr']),
+            description=interface['description'],
+            status=interface['state']
+        )
+
+    all_neighbors = []
+    for neighbor in data['bgp']['neighbors']:
+        all_neighbors.append((neighbor['ipaddr'], neighbor['remote_asn']))
+
+    device.add_bgp(
+        rid=data['bgp']['rid'],
+        asn=data['bgp']['asn'],
+        neighbors=all_neighbors
+    )
+
+    open_device = connect_to_device(device, env_vars)
+
+    que.put((device, open_device))
 
 
 def connect_to_device(device, env_vars):
@@ -108,26 +143,26 @@ def main(args):
 
     # Create objects for each device
     devices = []
+    threads = []
+    ques = []
+
     for hostname, data in network_yml.items():
-        device = Router(
-            hostname=hostname,
-            mgmt_ip=data['mgmt'],
-            vendor=data['vendor'],
-            os=data['os']
-        )
+        q = queue.Queue()
+        t = threading.Thread(
+            target=device_setup,
+            args=(hostname, data, env_vars, q)) # Using multiple threads to speed up this process
+        threads.append(t)
+        ques.append(q)
+        t.start()
 
-        for name, interface in data['interfaces'].items():
-            device.add_interface(
-                name=name,
-                ip=ipaddress.IPv4Interface(interface['ipaddr']),
-                description=interface['description'],
-                status=interface['state']
-            )
+    for thread in threads:
+        thread.join()
 
-        open_device = connect_to_device(device, env_vars)
-        devices.append((device, open_device))
+    for que in ques:
+        devices.append(que.get())
 
-    # Configure each device
+
+    # Base configuration on each device
     for device in devices:
         logging.info('Generating configuration for {}'.format(device[0].hostname))
         config = ''
@@ -140,17 +175,27 @@ def main(args):
         logging.info('Testing interfaces on {}'.format(device[0].hostname))
         for interface in device[0].interfaces:
             # Will get each interfaces P2P peer host and ping it. Log messages generated based on the boolean output
-            ping_status = device[1].ping(interface.get_p2p_connected_host())
-            if ping_status['success']['probes_sent'] > ping_status['success']['packet_loss']:
-                logging.info('{interface} on {device} can reach its peer!'.format(
-                    interface=interface.name,
-                    device=device[0].hostname
-                ))
-            else:
-                logging.warning('{interface} on {device} CANNOT reach its peer!'.format(
-                    interface=interface.name,
-                    device=device[0].hostname
-                ))
+            if interface.status == 'up':
+                ping_status = device[1].ping(interface.get_p2p_connected_host())
+                if ping_status['success']['probes_sent'] > ping_status['success']['packet_loss']:
+                    logging.info('{interface} on {device} can reach its peer!'.format(
+                        interface=interface.name,
+                        device=device[0].hostname
+                    ))
+                else:
+                    logging.warning('{interface} on {device} CANNOT reach its peer!'.format(
+                        interface=interface.name,
+                        device=device[0].hostname
+                    ))
+
+    # Configure BGP
+    for device in devices:
+        logging.info('Generating BGP configuration for {}'.format(device[0].hostname))
+        config = ''
+        config += generate_config(device[0], env_vars, 'add_bgp_neighbor') + '\n'
+        send_config_to_device(device[1], device[0], config)
+
+    # Validate BGP
 
     # Close open device connections
     for device in devices:

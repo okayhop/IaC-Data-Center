@@ -1,0 +1,10 @@
+router bgp {{ data.bgp.asn }}
+bgp router-id {{ data.bgp.rid }}
+{% if data.bgp.redistribute is defined %}
+{% for option in data.bgp.redistribute %}
+redistribute {{ option }}
+{% endfor%}
+{% endif%}
+{% for peer in data.bgp.neighbors -%}
+neighbor {{ peer[0] }} remote-as {{ peer[1] }}
+{% endfor %}

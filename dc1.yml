@@ -2,14 +2,6 @@ leaf1:
   mgmt: 172.16.1.101/24
   vendor: 'cisco'
   os: 'ios'
-  bgp:
-    asn: 65511
-    rid: 1.1.1.1
-    neighbors:
-      - ipaddr: 10.10.12.2
-        remote_asn: 65512
-      - ipaddr: 10.10.13.2
-        remote_asn: 65513
   interfaces:
     GigabitEthernet2:
       ipaddr: 10.10.1.2/30
@@ -19,6 +11,18 @@ leaf1:
       ipaddr: 10.10.2.2/30
       description: To spine2
       state: up
+  bgp:
+    asn: 65513
+    rid: 3.3.3.3
+    redistribute:
+      - connected
+    neighbors:
+      - ipaddr: 10.10.1.1
+        remote_asn: 65511
+        address_family:
+          - 'ipv4'
+      - ipaddr: 10.10.2.1
+        remote_asn: 65512
 leaf2:
   mgmt: 172.16.1.102/24
   vendor: 'cisco'
@@ -32,6 +36,16 @@ leaf2:
       ipaddr: 10.10.2.6/30
       description: To spine2
       state: up
+  bgp:
+    asn: 65513
+    rid: 4.4.4.4
+    redistribute:
+      - connected
+    neighbors:
+      - ipaddr: 10.10.1.5
+        remote_asn: 65511
+      - ipaddr: 10.10.2.5
+        remote_asn: 65512
 spine1:
   mgmt: 172.16.1.201/24
   vendor: 'cisco'
@@ -48,11 +62,19 @@ spine1:
     GigabitEthernet4:
       ipaddr: 10.10.1.9/30
       description: To leaf3
-      state: up
+      state: down
     GigabitEthernet5:
       ipaddr: 10.10.1.13/30
       description: To leaf4
-      state: up
+      state: down
+  bgp:
+    asn: 65511
+    rid: 1.1.1.1
+    neighbors:
+      - ipaddr: 10.10.1.2
+        remote_asn: 65513
+      - ipaddr: 10.10.1.5
+        remote_asn: 65514
 spine2:
   mgmt: 172.16.1.202/24
   vendor: 'cisco'
@@ -69,8 +91,16 @@ spine2:
     GigabitEthernet4:
       ipaddr: 10.10.2.9/30
       description: To leaf3
-      state: up
+      state: down
     GigabitEthernet5:
       ipaddr: 10.10.2.13/30
       description: To leaf4
-      state: up
+      state: down
+  bgp:
+    asn: 65512
+    rid: 2.2.2.2
+    neighbors:
+      - ipaddr: 10.10.2.2
+        remote_asn: 65513
+      - ipaddr: 10.10.2.5
+        remote_asn: 65514
