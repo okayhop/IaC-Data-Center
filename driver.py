@@ -61,13 +61,20 @@ def device_setup(hostname, data, env_vars, que):
             status=interface['state']
         )
 
+    # BGP
     all_neighbors = []
     for neighbor in data['bgp']['neighbors']:
         all_neighbors.append((neighbor['ipaddr'], neighbor['remote_asn']))
 
+    redistribute_options = []
+    if 'redistribute' in data['bgp']:
+        for option in data['bgp']['redistribute']:
+            redistribute_options.append(option)
+
     device.add_bgp(
         rid=data['bgp']['rid'],
         asn=data['bgp']['asn'],
+        redistribute=redistribute_options,
         neighbors=all_neighbors
     )
 
@@ -161,7 +168,6 @@ def main(args):
     for que in ques:
         devices.append(que.get())
 
-
     # Base configuration on each device
     for device in devices:
         logging.info('Generating configuration for {}'.format(device[0].hostname))
@@ -196,6 +202,13 @@ def main(args):
         send_config_to_device(device[1], device[0], config)
 
     # Validate BGP
+    for device in devices:
+        status = device[1].get_bgp_neighbors()
+        for neighbor, info in status['global']['peers'].items():
+            if info['is_up']:
+                logging.info('{}: {} is up!'.format(device[0].hostname, neighbor))
+            else:
+                logging.warning('{}: {} is down!'.format(device[0].hostname, neighbor))
 
     # Close open device connections
     for device in devices:

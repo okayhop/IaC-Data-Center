@@ -37,7 +37,7 @@ leaf2:
       description: To spine2
       state: up
   bgp:
-    asn: 65513
+    asn: 65514
     rid: 4.4.4.4
     redistribute:
       - connected
@@ -73,7 +73,7 @@ spine1:
     neighbors:
       - ipaddr: 10.10.1.2
         remote_asn: 65513
-      - ipaddr: 10.10.1.5
+      - ipaddr: 10.10.1.6
         remote_asn: 65514
 spine2:
   mgmt: 172.16.1.202/24
@@ -102,5 +102,5 @@ spine2:
     neighbors:
       - ipaddr: 10.10.2.2
         remote_asn: 65513
-      - ipaddr: 10.10.2.5
+      - ipaddr: 10.10.2.6
         remote_asn: 65514

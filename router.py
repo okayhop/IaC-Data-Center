@@ -19,13 +19,17 @@ class Router:
             return True
         return False
 
-    def add_bgp(self, rid, asn, neighbors):
+    def add_bgp(self, rid, asn, redistribute, neighbors):
         self.bgp = {'asn': asn,
                     'rid': rid,
+                    'redistribute': [],
                     'neighbors': []}
 
         for neighbor in neighbors:
             self.bgp['neighbors'].append(neighbor)
+
+        for option in redistribute:
+            self.bgp['redistribute'].append(option)
 
     def get_device_info(self):
         return str('\nHostname: {hostname}\nVendor: {vendor}\nOS: {os}\nMGMT IP: {mgmt}\n# of Interfaces: {total}'.format(
